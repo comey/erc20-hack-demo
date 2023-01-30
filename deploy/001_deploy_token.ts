@@ -11,14 +11,13 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     const {deploy} = deployments; 
     // Fetch the accounts. These can be configured in hardhat.config.ts as explained above.
     const {deployer, tokenOwner0, tokenOwner1} = await getNamedAccounts(); 
-    console.log('Argument List: '+tokenOwner1);
     // This will create a deployment called 'Token'. 
     // By default it will look for an artifact with the same name. 
     // The 'contract' option allows you to use a different artifact.
     await deploy('MyToken'  /* This is the name of the deployed smart contract, refer to getContract("MyToken") in test*/, { 
-        contract: 'Token',  // name of the token source
+        contract: 'MyERC20Token',  // name of the token source
         from: deployer,     // Deployer will be performing the deployment transaction.
-        args: [tokenOwner1], // tokenOwner is the address used as the first argument to the Token contract's constructor.
+        args: ['EECE571-G-TOKEN', 'EGT', 10000000], // tokenOwner is the address used as the first argument to the Token contract's constructor.
         log: true,          // Display the address and gas used in the console (not when run in test though).
     });
 };

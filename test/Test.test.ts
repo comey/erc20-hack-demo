@@ -6,6 +6,7 @@ import {setupUsers, setupUser} from './utils';
 
 // We import the hardhat environment field we are planning to use
 import {ethers, deployments, getNamedAccounts, getUnnamedAccounts} from 'hardhat';
+import { BigNumber } from "ethers";
 
 // we create a setup function that can be called by every test and setup variable for easy to read tests
 async function setup () {
@@ -18,10 +19,10 @@ async function setup () {
   };
 
   // we get the tokenOwner1
-  const {tokenOwner1} = await getNamedAccounts();
+  const {deployer} = await getNamedAccounts();
 
   // Get the unnammedAccounts (which are basically all accounts not named in the config,
-  // This is useful for tests as you can be sure they have noy been given tokens for example)
+  // This is useful for tests as you can be sure they have not been given tokens for example)
   // We then use the utilities function to generate user objects
   // These object allow you to write things like `users[0].Token.transfer(....)`
   const users = await setupUsers(await getUnnamedAccounts(), contracts);
@@ -29,7 +30,7 @@ async function setup () {
   return {
     ...contracts,
     users,
-    tokenOwner1: await setupUser(tokenOwner1, contracts),
+    deployer: await setupUser(deployer, contracts),
   };
 }
 
@@ -59,22 +60,22 @@ describe("Token contract", function() {
 
 
       // This test expects the owner variable stored in the contract to be equal to our configured owner
-      const {tokenOwner1} = await getNamedAccounts();
-      expect(await Token.owner()).to.equal(tokenOwner1);
+      const {deployer} = await getNamedAccounts();
+      expect(await Token.owner()).to.equal(deployer);
     });
 
     it("Should assign the total supply of tokens to the owner", async function () {
-      const {Token, tokenOwner1} = await setup();
-      const ownerBalance = await Token.balanceOf(tokenOwner1.address);
+      const {Token, deployer} = await setup();
+      const ownerBalance = await Token.balanceOf(deployer.address);
       expect(await Token.totalSupply()).to.equal(ownerBalance);
     });
   });
 
   describe("Transactions", function () {
     it("Should transfer tokens between accounts", async function () {
-      const {Token, users, tokenOwner1} = await setup();
+      const {Token, users, deployer} = await setup();
       // Transfer 50 tokens from owner to users[0]
-      await tokenOwner1.Token.transfer(users[0].address, 50);
+      await deployer.Token.transfer(users[0].address, 50);
       const users0Balance = await Token.balanceOf(users[0].address);
       expect(users0Balance).to.equal(50);
 
@@ -86,39 +87,66 @@ describe("Token contract", function() {
     });
 
     it("Should fail if sender doesn’t have enough tokens", async function () {
-      const {Token, users, tokenOwner1} = await setup();
-      const initialOwnerBalance = await Token.balanceOf(tokenOwner1.address);
+      const {Token, users, deployer} = await setup();
+      const initialOwnerBalance = await Token.balanceOf(deployer.address);
 
       // Try to send 1 token from users[0] (0 tokens) to owner (1000 tokens).
       // `require` will evaluate false and revert the transaction.
-      await expect(users[0].Token.transfer(tokenOwner1.address, 1)
-      ).to.be.revertedWith("Not enough tokens");
+      await expect(users[0].Token.transfer(deployer.address, 1)
+      ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
 
       // Owner balance shouldn't have changed.
-      expect(await Token.balanceOf(tokenOwner1.address)).to.equal(
+      expect(await Token.balanceOf(deployer.address)).to.equal(
         initialOwnerBalance
       );
     });
 
     it("Should update balances after transfers", async function () {
-      const {Token, users, tokenOwner1} = await setup();
-      const initialOwnerBalance = await Token.balanceOf(tokenOwner1.address);
-
+      const {Token, users, deployer} = await setup();
+      const initialOwnerBalance = await Token.balanceOf(deployer.address);
       // Transfer 100 tokens from owner to users[0].
-      await tokenOwner1.Token.transfer(users[0].address, 100);
+      await deployer.Token.transfer(users[0].address, 100);
 
       // Transfer another 50 tokens from owner to users[1].
-      await tokenOwner1.Token.transfer(users[1].address, 50);
+      await deployer.Token.transfer(users[1].address, 50);
 
       // Check balances.
-      const finalOwnerBalance = await Token.balanceOf(tokenOwner1.address);
-      expect(finalOwnerBalance).to.equal(initialOwnerBalance - 150);
+      const finalOwnerBalance = await Token.balanceOf(deployer.address);
+      expect(finalOwnerBalance.toString()).to.equal((initialOwnerBalance.sub(BigNumber.from(150))).toString());
 
       const users0Balance = await Token.balanceOf(users[0].address);
-      expect(users0Balance).to.equal(100);
+      expect(users0Balance).to.equal(BigNumber.from(100));
 
       const users1Balance = await Token.balanceOf(users[1].address);
-      expect(users1Balance).to.equal(50);
+      expect(users1Balance).to.equal(BigNumber.from(50));
+    });
+    it("Should update balances after transfers", async function () {
+      const {Token, users, deployer} = await setup();
+      const initialOwnerBalance = await Token.balanceOf(deployer.address);
+      // Transfer 100 tokens from owner to users[0].
+      await deployer.Token.transfer(users[0].address, 100);
+
+      // Transfer another 50 tokens from owner to users[1].
+      await deployer.Token.transfer(users[1].address, 50);
+
+      // Check balances.
+      const finalOwnerBalance = await Token.balanceOf(deployer.address);
+      expect(finalOwnerBalance.toString()).to.equal((initialOwnerBalance.sub(BigNumber.from(150))).toString());
+
+      const users0Balance = await Token.balanceOf(users[0].address);
+      expect(users0Balance).to.equal(BigNumber.from(100));
+
+      const users1Balance = await Token.balanceOf(users[1].address);
+      expect(users1Balance).to.equal(BigNumber.from(50));
+    });
+
+    it("Should event emitted when transfers", async function () {
+      const {Token, users, deployer} = await setup();
+      const transferTx = await deployer.Token.transfer(users[0].address, 100);
+      const result = await transferTx.wait();
+      expect(result.events[0].args.from).to.equal(deployer.address);
+      expect(result.events[0].args.to).to.equal(users[0].address);
+      expect(result.events[0].args.value).to.equal(BigNumber.from(100));
     });
   });
 });
