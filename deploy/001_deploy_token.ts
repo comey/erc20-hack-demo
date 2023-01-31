@@ -2,7 +2,6 @@
 import {HardhatRuntimeEnvironment} from 'hardhat/types';
 // This adds the type that a deploy function is expected to fulfill.
 import {DeployFunction} from 'hardhat-deploy/types'; 
-
 // the deploy function receives the hardhat runtime env as an argument
 const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // we get the deployments and getNamedAccounts which are provided by hardhat-deploy. 
@@ -14,12 +13,29 @@ const func: DeployFunction = async function (hre: HardhatRuntimeEnvironment) {
     // This will create a deployment called 'Token'. 
     // By default it will look for an artifact with the same name. 
     // The 'contract' option allows you to use a different artifact.
-    await deploy('MyToken'  /* This is the name of the deployed smart contract, refer to getContract("MyToken") in test*/, { 
+    const tokenDeploymentTx = await deploy('MyToken'  /* This is the name of the deployed smart contract, refer to getContract("MyToken") in test*/, { 
         contract: 'MyERC20Token',  // name of the token source
         from: deployer,     // Deployer will be performing the deployment transaction.
         args: ['EECE571-G-TOKEN', 'EGT', 10000000], // tokenOwner is the address used as the first argument to the Token contract's constructor.
         log: true,          // Display the address and gas used in the console (not when run in test though).
     });
+    
+    const tokenAddress = tokenDeploymentTx.address;
+
+    const saleDeploymentTx = await deploy('MyTokenSale'  /* This is the name of the deployed smart contract, refer to getContract("MyToken") in test*/, { 
+        contract: 'MyTokenSale',  // name of the token source
+        from: deployer,     // Deployer will be performing the deployment transaction.
+        args: [tokenAddress, 1], // address of the deployed token to be sold.
+        log: true,          // Display the address and gas used in the console (not when run in test though).
+    });
+
+    const tokenSaleAddress = saleDeploymentTx.address;
+
+    console.log(tokenSaleAddress);
+
+
+
+
 };
 export default func;
 func.tags = ['EECE571G2022W2']; // This sets up a tag so you can use it in fixture. Refer to deployments.fixture(["ABC"])
